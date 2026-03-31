@@ -1,1 +1,2 @@
-export { default as posts } from "./posts.ts";
+export * from './auth.ts';
+export * from './posts.ts';

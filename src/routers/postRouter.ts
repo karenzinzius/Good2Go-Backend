@@ -1,14 +1,13 @@
 import { Router } from "express";
-import {posts} from "#controllers";
+import { getPosts, createPost, updatePost, deletePost } from "#controllers";
+import { authenticate } from '#middlewares'
 
-const router = Router();
+const postRouter = Router();
 
 // GET /api/posts?category=Furniture&location=Berlin
-router.get("/", posts.getPosts);
+postRouter.get("/", getPosts);
+postRouter.post("/", authenticate, createPost);
+postRouter.put("/:id", authenticate, updatePost);
+postRouter.delete("/:id", authenticate, deletePost);
 
-// 🔹 You can add other CRUD endpoints later
-// router.post("/", postsController.createPost);
-// router.put("/:id", postsController.updatePost);
-// router.delete("/:id", postsController.deletePost);
-
-export default router;
+export default postRouter;

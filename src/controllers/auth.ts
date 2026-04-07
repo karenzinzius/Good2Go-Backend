@@ -1,113 +1,71 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
 import type { RequestHandler } from 'express';
-import { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET, SALT_ROUNDS } from '#config';
 import { User, RefreshToken } from '#models';
 import { createTokens, setAuthCookies } from '#utils';
+import bcrypt from 'bcrypt';
 
-// Register
-export const register: RequestHandler = async (req, res) => {
-  const { username, email, password } = req.body;
-
-  // Check if email already exists
-  const exists = await User.exists({ email });
-  if (exists) return res.status(409).json({ message: 'Email already exists' });
-
-  // Create user
-  const user = await User.create({ username, email, password });
-
-  // Generate tokens
-  const [refreshToken, accessToken] = await createTokens(user);
-
-  // Set cookies
-  setAuthCookies(res, refreshToken, accessToken);
-
-  res.status(201).json({ message: 'Registered' });
-};
-
-// Login
-export const login: RequestHandler = async (req, res) => {
-  const { email, password } = req.body;
-
-  const user = await User.findOne({ email });
-  if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(401).json({ message: 'Invalid credentials' });
-
-  // Remove old refresh tokens
-  await RefreshToken.deleteMany({ userId: user._id });
-
-  const [refreshToken, accessToken] = await createTokens(user);
-
-  setAuthCookies(res, refreshToken, accessToken);
-
-  res.status(200).json({ message: 'Logged in' });
-};
-
-// Logout
-export const logout: RequestHandler = async (req, res) => {
-  const { refreshToken } = req.cookies;
-
-  if (refreshToken) await RefreshToken.deleteOne({ token: refreshToken });
-
-  res.clearCookie('refreshToken');
-  res.clearCookie('accessToken');
-
-  res.json({ message: 'Successfully logged out' });
-};
-
-// Me / Profile
-export const me: RequestHandler = async (req, res) => {
-  const { accessToken } = req.cookies;
-  if (!accessToken) return res.status(401).json({ message: 'Access token required' });
-
+export const register: RequestHandler = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(accessToken, ACCESS_JWT_SECRET) as jwt.JwtPayload;
-    const user = await User.findById(decoded.sub).select('-password').populate('favourites').lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { username, email, password } = req.body;
+    const exists = await User.exists({ email });
+    if (exists) throw new Error('Email already exists', { cause: 409 });
 
-    res.json({ message: 'Valid token', user });
-  } catch (err) {
-    return res.status(403).json({ message: 'Invalid or expired access token' });
-  }
+    const user = await User.create({ username, email, password });
+    const [refreshToken, accessToken] = await createTokens(user);
+    setAuthCookies(res, refreshToken, accessToken);
+
+    res.status(201).json({ message: 'Registered' });
+  } catch (err) { next(err); }
 };
 
-export const updateProfile: RequestHandler = async (req, res) => {
+export const login: RequestHandler = async (req, res, next) => {
   try {
-    const userId = req.body.ownerId; // From middleware
-    const { username, address, postalCode, profilePic } = req.body;
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) throw new Error('Invalid credentials', { cause: 401 });
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { username, address, postalCode, profilePic },
-      { new: true } // Return the updated version
-    ).select("-password");
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) throw new Error('Invalid credentials', { cause: 401 });
 
-    res.json(updatedUser);
-  } catch (err) {
-    res.status(500).json({ message: "Profile update failed" });
-  }
+    await RefreshToken.deleteMany({ userId: user._id });
+    const [refreshToken, accessToken] = await createTokens(user);
+    setAuthCookies(res, refreshToken, accessToken);
+
+    res.status(200).json({ message: 'Logged in', user: { username: user.username, email: user.email } });
+  } catch (err) { next(err); }
 };
 
-  export const toggleFavourite: RequestHandler = async (req, res) => {
+export const me: RequestHandler = async (req, res, next) => {
   try {
-    const { postId } = req.body;
-    const userId = req.body.ownerId; // Provided by your authenticate middleware!
+    const userId = req.userId; // Provided by your authenticate middleware
+    const user = await User.findById(userId).select('-password').populate('favourites').lean();
+    if (!user) throw new Error('User not found', { cause: 404 });
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ user });
+  } catch (err) { next(err); }
+};
 
-    const index = user.favourites.indexOf(postId);
-    if (index === -1) {
-      user.favourites.push(postId); // Add to favs
-    } else {
-      user.favourites.splice(index, 1); // Remove from favs
+export const logout: RequestHandler = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    // 1. If there is a refresh token, delete it from the DB
+    if (refreshToken) {
+      await RefreshToken.deleteOne({ token: refreshToken });
     }
 
-    await user.save();
-    res.status(200).json(user.favourites);
-  } catch (error) {
-    res.status(500).json({ message: "Error toggling favourite" });
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.status(200).json({ message: "Successfully logged out" });
+  } catch (err) {
+    next(err);
   }
+};
+
+export const updateProfile: RequestHandler = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const updatedUser = await User.findByIdAndUpdate(userId, req.body, { new: true }).select("-password");
+    res.json(updatedUser);
+  } catch (err) { next(err); }
 };

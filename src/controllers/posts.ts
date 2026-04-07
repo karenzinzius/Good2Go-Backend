@@ -1,89 +1,86 @@
 import type { RequestHandler } from "express";
-import { Post, postInputSchema, postUpdateInputSchema } from "#models";
-import { v2 as cloudinary } from "cloudinary";
+import { Post } from "#models";
+import type { z } from "zod";
+import type {
+  postInputSchema,
+  postUpdateInputSchema,
+  postSchema,
+} from "#schemas";
 
-// READ: Get all posts (with filters)
-const getPosts: RequestHandler = async (req, res) => {
+type PostInputDTO = z.infer<typeof postInputSchema>;
+type UpdatePostDTO = z.infer<typeof postUpdateInputSchema>;
+type PostDTO = z.infer<typeof postSchema>;
+
+// 1. Get All
+export const getAllPosts: RequestHandler<{}, PostDTO[]> = async (req, res, next) => {
   try {
-    const { category, location, search } = req.query;
-    const query: any = { status: "available" };
-
-    if (category && category !== "All") query.category = category;
-    if (location) query.location = { $regex: location, $options: "i" };
-    if (search) { query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } }
-      ];
-    }
-
-    const posts = await Post.find(query).sort({ createdAt: -1 });
-    res.status(200).json(posts);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch posts" });
+    const posts = await Post.find().sort({ createdAt: -1 });
+    res.json(posts as unknown as PostDTO[]);
+  } catch (err) {
+    next(err);
   }
 };
 
-// CREATE: Add a new item
-const createPost: RequestHandler = async (req, res) => {
+// 2. Create
+export const createPost: RequestHandler<{}, PostDTO, PostInputDTO> = async (req, res, next) => {
   try {
-    // 1. Validate the input (The Guard)
-    const validatedData = postInputSchema.parse(req.body);
-
-    // 2. Upload images to Cloudinary (Converting strings to URLs)
-    let imageUrls: string[] = [];
-    if (validatedData.images && validatedData.images.length > 0) {
-      const uploadPromises = validatedData.images.map((img) =>
-        cloudinary.uploader.upload(img, { folder: "good-to-go" })
-      );
-      const results = await Promise.all(uploadPromises);
-      imageUrls = results.map((r) => r.secure_url);
-    }
-
-    // 3. Save to DB
-    const newPost = await Post.create({
-      ...validatedData,
-      images: imageUrls,
-    });
-
-    res.status(201).json(newPost);
-  } catch (error: any) {
-    if (error.name === "ZodError") return res.status(400).json({ errors: error.errors });
-    res.status(500).json({ message: "Failed to create post" });
+    // req.body is already validated by validateBody(postInputSchema)
+    const newPost = await Post.create(req.body);
+    res.status(201).json(newPost as unknown as PostDTO);
+  } catch (err) {
+    next(err);
   }
 };
 
-// UPDATE: Edit a post or change status (available -> taken)
-const updatePost: RequestHandler = async (req, res) => {
+// 3. Get By ID
+export const getPostById: RequestHandler<{ id: string }, PostDTO> = async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) throw new Error("Post not found!", { cause: 404 });
+    res.json(post as unknown as PostDTO);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePost: RequestHandler<{ id: string }, PostDTO, UpdatePostDTO> = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // 1. Validate the data first
-    const validatedData = postUpdateInputSchema.parse(req.body);
+    const { userId } = req; 
 
-    // 2. Find and Update ONLY if the owner matches (Security!)
-    const updatedPost = await Post.findOneAndUpdate(
-      { _id: id, ownerId: req.body.ownerId }, 
-      validatedData,
-      { new: true }
-    );
+    const post = await Post.findById(id);
+    if (!post) throw new Error("Post not found!", { cause: 404 });
 
-   if (!updatedPost) {
-      return res.status(404).json({ message: "Post not found or unauthorized" });
+    // Authorization Check
+    if (userId !== post.ownerId.toString()) {
+      throw new Error("You are not authorized to update this post", { cause: 403 });
     }
 
-    res.status(200).json(updatedPost);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message || "Update failed" });
-  }
-};
-// DELETE: Remove a post
-const deletePost: RequestHandler = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await Post.findByIdAndDelete(id);
-    res.status(200).json({ message: "Post deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Delete failed" });
+    // Apply updates from validated body
+    Object.assign(post, req.body);
+    await post.save();
+
+    res.json(post as unknown as PostDTO);
+  } catch (err) {
+    next(err);
   }
 };
 
-export { getPosts, createPost, updatePost, deletePost };
+export const deletePost: RequestHandler<{ id: string }, { message: string }> = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req;
+
+    const post = await Post.findById(id);
+    if (!post) throw new Error("Post not found!", { cause: 404 });
+
+    if (userId !== post.ownerId.toString()) {
+      throw new Error("Unauthorized delete attempt", { cause: 403 });
+    }
+
+    await post.deleteOne();
+    res.json({ message: "Post deleted!" });
+  } catch (err) {
+    next(err);
+  }
+};

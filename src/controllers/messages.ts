@@ -2,35 +2,36 @@ import type { RequestHandler } from 'express';
 import { Message } from '#models';
 
 // 1. Send Message
-const sendMessage: RequestHandler = async (req, res) => {
-  try {
+const sendMessage: RequestHandler = async (req, res, next) => {
+ try {
+    const senderId = req.userId; // Force sender to be the logged-in user
     const { receiverId, postId, text } = req.body;
-    const senderId = req.body.ownerId; // From authenticate middleware
 
-    const newMessage = await Message.create({ senderId, receiverId, postId, text });
+    const newMessage = await Message.create({
+      senderId,
+      receiverId,
+      postId,
+      text
+    });
+
     res.status(201).json(newMessage);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to send message" });
-  }
+  } catch (err) { next(err); }
 };
 
 // 2. Get My Inbox
-const getMessages: RequestHandler = async (req, res) => {
-  try {
-    const userId = req.body.ownerId;
+const getMessages: RequestHandler = async (req, res, next) => {
+try {
+    const userId = req.userId; 
     
-    // Find all messages where I am sender OR receiver
     const messages = await Message.find({
       $or: [{ senderId: userId }, { receiverId: userId }]
     })
-    .populate('senderId', 'username') // Get sender's name
-    .populate('postId', 'title')      // Get post title
-    .sort({ createdAt: 1 });
+    .populate('senderId receiverId', 'username profilePic')
+    .populate('postId', 'title images') // Added back!
+    .sort({ createdAt: 1 }); // Oldest first (chat style)
 
     res.json(messages);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching messages" });
-  }
+  } catch (err) { next(err); }
 };
 
 const markAsRead: RequestHandler = async (req, res) => {
@@ -49,4 +50,15 @@ const markAsRead: RequestHandler = async (req, res) => {
   }
 };
 
-export { sendMessage, getMessages, markAsRead };
+const deleteMessage: RequestHandler = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const found = await Message.findByIdAndDelete(id);
+    if (!found) throw new Error("Message not found", { cause: 404 });
+    res.json({ message: "Deleted!" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export { sendMessage, getMessages, markAsRead, deleteMessage };

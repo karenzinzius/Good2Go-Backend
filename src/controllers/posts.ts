@@ -5,11 +5,16 @@ import { v2 as cloudinary } from "cloudinary";
 // READ: Get all posts (with filters)
 const getPosts: RequestHandler = async (req, res) => {
   try {
-    const { category, location } = req.query;
-    const query: any = {};
+    const { category, location, search } = req.query;
+    const query: any = { status: "available" };
 
     if (category && category !== "All") query.category = category;
     if (location) query.location = { $regex: location, $options: "i" };
+    if (search) { query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } }
+      ];
+    }
 
     const posts = await Post.find(query).sort({ createdAt: -1 });
     res.status(200).json(posts);
@@ -51,17 +56,25 @@ const createPost: RequestHandler = async (req, res) => {
 const updatePost: RequestHandler = async (req, res) => {
   try {
     const { id } = req.params;
+    // 1. Validate the data first
     const validatedData = postUpdateInputSchema.parse(req.body);
 
-    const updatedPost = await Post.findByIdAndUpdate(id, validatedData, { new: true });
-    if (!updatedPost) return res.status(404).json({ message: "Post not found" });
+    // 2. Find and Update ONLY if the owner matches (Security!)
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: id, ownerId: req.body.ownerId }, 
+      validatedData,
+      { new: true }
+    );
+
+   if (!updatedPost) {
+      return res.status(404).json({ message: "Post not found or unauthorized" });
+    }
 
     res.status(200).json(updatedPost);
   } catch (error: any) {
-    res.status(400).json({ message: "Update failed" });
+    res.status(400).json({ message: error.message || "Update failed" });
   }
 };
-
 // DELETE: Remove a post
 const deletePost: RequestHandler = async (req, res) => {
   try {

@@ -73,6 +73,23 @@ export const me: RequestHandler = async (req, res) => {
   }
 };
 
+export const updateProfile: RequestHandler = async (req, res) => {
+  try {
+    const userId = req.body.ownerId; // From middleware
+    const { username, address, postalCode, profilePic } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { username, address, postalCode, profilePic },
+      { new: true } // Return the updated version
+    ).select("-password");
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ message: "Profile update failed" });
+  }
+};
+
   export const toggleFavourite: RequestHandler = async (req, res) => {
   try {
     const { postId } = req.body;

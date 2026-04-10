@@ -2,6 +2,8 @@ import type { RequestHandler } from 'express';
 import { User, RefreshToken } from '#models';
 import { createTokens, setAuthCookies } from '#utils';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { REFRESH_JWT_SECRET } from '#config';
 
 export const register: RequestHandler = async (req, res, next) => {
   try {
@@ -68,4 +70,31 @@ export const updateProfile: RequestHandler = async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(userId, req.body, { new: true }).select("-password");
     res.json(updatedUser);
   } catch (err) { next(err); }
+};
+
+export const refresh: RequestHandler = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
+    if (!refreshToken) throw new Error("No refresh token", { cause: 401 });
+
+    // 1. Check if token exists in DB
+    const tokenDoc = await RefreshToken.findOne({ token: refreshToken });
+    if (!tokenDoc) throw new Error("Invalid refresh token", { cause: 403 });
+
+    // 2. Verify JWT
+    const decoded = jwt.verify(refreshToken, REFRESH_JWT_SECRET) as jwt.JwtPayload;
+    const user = await User.findById(decoded.sub);
+    if (!user) throw new Error("User not found", { cause: 404 });
+
+    // 3. Generate NEW tokens
+    const [newRefreshToken, newAccessToken] = await createTokens(user);
+    
+    // 4. Update DB and Cookies
+    await RefreshToken.deleteOne({ _id: tokenDoc._id });
+    setAuthCookies(res, newRefreshToken, newAccessToken);
+
+    res.json({ message: "Tokens refreshed" });
+  } catch (err) {
+    next(err);
+  }
 };

@@ -28,13 +28,15 @@ export const createTokens = async (user: Document) => {
 export const setAuthCookies = (res: Response, refreshToken: string, accessToken: string) => {
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: 'lax',
+    secure: false,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: 'lax',
+    secure: false,
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 };

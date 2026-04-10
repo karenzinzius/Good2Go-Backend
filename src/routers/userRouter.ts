@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getUserProfile, toggleFavourite } from '#controllers';
-import { authenticate } from '#middlewares';
+import { authenticate, validateBody } from '#middlewares';
+import { toggleFavSchema } from '#schemas'
 
 const userRouter = Router();
 
@@ -8,6 +9,6 @@ const userRouter = Router();
 userRouter.get('/:id', authenticate, getUserProfile);
 
 // Toggle a post in favourites
-userRouter.post('/favourite', authenticate, toggleFavourite);
+userRouter.post('/favourite', authenticate, validateBody(toggleFavSchema), toggleFavourite);
 
 export default userRouter;

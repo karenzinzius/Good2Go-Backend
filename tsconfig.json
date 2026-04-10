@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    /* Fix Deprecation and Layout Errors */
+    "ignoreDeprecations": "5.0", // Silences the baseUrl warning
+    "rootDir": "./src",           // Explicitly set the source root
     /* Base Options: */
     "esModuleInterop": true, // Enables default imports from CommonJS modules
     "lib": ["es2022"], // Includes modern ES features in the type system
@@ -21,9 +24,9 @@
     "noEmit": false, // Enables output generation
     "outDir": "dist", // Output directory for compiled JavaScript
     /* Paths */
-    "baseUrl": "./src", // Base path for module resolution
+    /* Updated Paths (Removing Deprecated baseUrl) */
     "paths": {
-      "#*": ["*"] // Defines internal path aliases with '#' to avoid conflict with '@'
+      "#*": ["./src/*"] 
     }
   },
   "include": ["src"] // Files to include in compilation

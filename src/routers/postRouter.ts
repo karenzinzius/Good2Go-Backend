@@ -1,13 +1,17 @@
 import { Router } from "express";
-import { getPosts, createPost, updatePost, deletePost } from "#controllers";
-import { authenticate } from '#middlewares'
+import { getAllPosts, getPostById, createPost, updatePost, deletePost } from "#controllers";
+import { validateBody, authenticate  } from '#middlewares'
+import { postInputSchema, postUpdateInputSchema } from '#schemas'
 
 const postRouter = Router();
 
-// GET /api/posts?category=Furniture&location=Berlin
-postRouter.get("/", getPosts);
-postRouter.post("/", authenticate, createPost);
-postRouter.put("/:id", authenticate, updatePost);
-postRouter.delete("/:id", authenticate, deletePost);
+// Public routes 
+postRouter.get("/", getAllPosts); 
+postRouter.get("/:id", getPostById);
+
+// Protected routes 
+postRouter.post("/", authenticate, validateBody(postInputSchema), createPost);
+postRouter.patch("/:id", authenticate, validateBody(postUpdateInputSchema), updatePost); 
+postRouter.delete("/:id", authenticate, deletePost); 
 
 export default postRouter;

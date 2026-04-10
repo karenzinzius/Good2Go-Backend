@@ -1,3 +1,3 @@
-export * from './posts';
-export * from './message';
-export * from './user'
+export * from './posts.ts';
+export * from './message.ts';
+export * from './user.ts'

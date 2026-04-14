@@ -7,6 +7,8 @@ const dbEntrySchema = z.strictObject({
   updatedAt: z.date(),
   __v: z.int().nonnegative(),
 });
+
+export const CATEGORIES = ["Furniture", "Electronics", "Clothing", "Books", "Household", "Other"] as const;
 // --- 1. ZOD VALIDATION (The "Security Guard") ---
 // We use this to check the data coming FROM the frontend.
 const postInputSchema = z.strictObject({
@@ -18,10 +20,10 @@ const postInputSchema = z.strictObject({
     .string()
     .min(10, "Please describe the item or where it is located")
     .max(1000),
-  category: z.enum(["Furniture", "Electronics", "Clothing", "Books", "Other"]),
+  category: z.enum(CATEGORIES),
   location: z.string().min(1, "Location is required"), 
   images: z.array(z.string()).optional(), // URLs of the photos
-  ownerId: z.string().refine((val) => isValidObjectId(val), "Invalid owner ID"),
+  ownerId: z.string().optional(),
 });
 
 // This is for when someone marks an item as "Taken" or "Pending"

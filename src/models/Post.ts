@@ -5,7 +5,7 @@ interface IPost {
   title: string;
   description: string;
   ownerId: Types.ObjectId;
-  category: "Furniture" | "Electronics" | "Clothing" | "Books" | "Other";
+  category: "Furniture" | "Electronics" | "Clothing" | "Books" | "Household" | "Other";
   location: string;
   images?: string[];
   status: "available" | "pending" | "taken";
@@ -18,7 +18,7 @@ const postSchema = new Schema<IPost>(
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     category: { 
       type: String, 
-      enum: ["Furniture", "Electronics", "Clothing", "Books", "Other"],
+      enum: ["Furniture", "Electronics", "Clothing", "Books", "Household",  "Other"],
       required: true 
     },
     location: { type: String, required: true },

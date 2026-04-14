@@ -6,22 +6,23 @@ import type { Document } from 'mongoose';
 
 export const createTokens = async (user: Document) => {
   // Create access token (short-lived)
-  const accessToken = jwt.sign(
-    { sub: user._id.toString() },
-    ACCESS_JWT_SECRET,
-    { expiresIn: '15m' }
-  );
+  const accessToken = jwt.sign({ sub: user._id.toString() }, ACCESS_JWT_SECRET, { expiresIn: '15m' });
 
   // Create refresh token (long-lived)
-  const refreshToken = jwt.sign(
-    { sub: user._id.toString() },
-    REFRESH_JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  const refreshToken = jwt.sign({ sub: user._id.toString() }, REFRESH_JWT_SECRET, { expiresIn: '7d' });
 
   // Store refresh token in DB
-  await RefreshToken.create({ token: refreshToken, userId: user._id });
-
+  // await RefreshToken.create({ token: refreshToken, userId: user._id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
+ try {
+    await RefreshToken.create({ 
+      token: refreshToken, 
+      userId: user._id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) 
+    });
+  } catch (dbErr) {
+    console.error("Token Save Error:", dbErr);
+    throw new Error("Session creation failed");
+  }
   return [refreshToken, accessToken] as const;
 };
 

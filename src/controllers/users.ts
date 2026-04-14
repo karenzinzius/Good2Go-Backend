@@ -11,6 +11,23 @@ const getUserProfile: RequestHandler = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const updateProfilePic: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.file) throw new Error("Please upload an image", { cause: 400 });
+
+    const userId = (req as any).userId;
+    const imageUrl = req.file.path; // Cloudinary URL
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { profilePic: imageUrl },
+      { new: true }
+    ).select("-password");
+
+    res.json({ message: "Profile picture updated!", user });
+  } catch (err) { next(err); }
+};
+
 // Toggle a post in user's favourites list
 const toggleFavourite: RequestHandler = async (req, res, next) => {
   try {
@@ -32,4 +49,4 @@ const toggleFavourite: RequestHandler = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-export { getUserProfile, toggleFavourite }
+export { getUserProfile, toggleFavourite, updateProfilePic }

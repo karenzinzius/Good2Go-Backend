@@ -18,6 +18,8 @@ app.use(cors({
 
 // 2. Body & Cookie Parser
 app.use(express.json(), cookieParser());
+// It tells Express how to read the text fields inside a FormData request.
+app.use(express.urlencoded({ extended: true }));
 
 // 3. API Routes
 app.use("/api/posts", postRouter);

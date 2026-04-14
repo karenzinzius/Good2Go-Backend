@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { ACCESS_JWT_SECRET } from "#config";
 
   const authenticate: RequestHandler = (req, res, next) => {
-  const { accessToken } = req.cookies;
+  const accessToken = req.cookies.accessToken;
 
   if (!accessToken) {
     return res.status(401).json({ message: "Access token required" });

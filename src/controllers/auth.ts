@@ -8,6 +8,7 @@ import { REFRESH_JWT_SECRET } from '#config';
 export const register: RequestHandler = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
+
     const exists = await User.exists({ email });
     if (exists) throw new Error('Email already exists', { cause: 409 });
 
@@ -15,13 +16,22 @@ export const register: RequestHandler = async (req, res, next) => {
     const [refreshToken, accessToken] = await createTokens(user);
     setAuthCookies(res, refreshToken, accessToken);
 
-    res.status(201).json({ message: 'Registered' });
+    res.status(201).json({ 
+      message: 'Registered',
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        favourites: []
+      }
+    });
   } catch (err) { next(err); }
 };
 
 export const login: RequestHandler = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
     const user = await User.findOne({ email });
     if (!user) throw new Error('Invalid credentials', { cause: 401 });
 
@@ -32,13 +42,21 @@ export const login: RequestHandler = async (req, res, next) => {
     const [refreshToken, accessToken] = await createTokens(user);
     setAuthCookies(res, refreshToken, accessToken);
 
-    res.status(200).json({ message: 'Logged in', user: { username: user.username, email: user.email } });
+    res.json({ 
+      message: 'Logged in', 
+      user: { 
+        _id: user._id, 
+        username: user.username, 
+        email: user.email,
+        favourites: user.favourites 
+      } 
+    });
   } catch (err) { next(err); }
 };
 
 export const me: RequestHandler = async (req, res, next) => {
   try {
-    const userId = req.userId; // Provided by your authenticate middleware
+    const userId = (req as any).userId; 
     const user = await User.findById(userId).select('-password').populate('favourites').lean();
     if (!user) throw new Error('User not found', { cause: 404 });
 

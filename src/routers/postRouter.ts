@@ -1,16 +1,19 @@
 import { Router } from "express";
-import { getAllPosts, getPostById, createPost, updatePost, deletePost } from "#controllers";
+import { getAllPosts, getMyPosts, getPostById, createPost, updatePost, deletePost } from "#controllers";
 import { validateBody, authenticate  } from '#middlewares'
-import { postInputSchema, postUpdateInputSchema } from '#schemas'
+import { postUpdateInputSchema } from '#schemas'
+import { upload } from '#config'; 
 
 const postRouter = Router();
+
+postRouter.get("/mine", authenticate, getMyPosts);
 
 // Public routes 
 postRouter.get("/", getAllPosts); 
 postRouter.get("/:id", getPostById);
 
 // Protected routes 
-postRouter.post("/", authenticate, validateBody(postInputSchema), createPost);
+postRouter.post("/", authenticate, upload.array('images', 10), createPost);
 postRouter.patch("/:id", authenticate, validateBody(postUpdateInputSchema), updatePost); 
 postRouter.delete("/:id", authenticate, deletePost); 
 

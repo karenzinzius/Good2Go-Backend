@@ -9,8 +9,10 @@ export const register: RequestHandler = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
-    const exists = await User.exists({ email });
-    if (exists) throw new Error('Email already exists', { cause: 409 });
+    const exists = await User.findOne({ 
+    $or: [{ email: email }, { username: username }] 
+  });
+    if (exists) throw new Error('User already exists', { cause: 409 });
 
     const user = await User.create({ username, email, password });
     const [refreshToken, accessToken] = await createTokens(user);

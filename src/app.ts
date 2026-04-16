@@ -12,12 +12,13 @@ const port = process.env.PORT || 3000;
 // 1. CORS
 app.use(cors({
   origin: CLIENT_BASE_URL,
-  credentials: true   ,
+  credentials: true,
   exposedHeaders: ['WWW-Authenticate']          
 }));
 
 // 2. Body & Cookie Parser
-app.use(express.json(), cookieParser());
+app.use(express.json());
+app.use(cookieParser());
 // It tells Express how to read the text fields inside a FormData request.
 app.use(express.urlencoded({ extended: true }));
 
